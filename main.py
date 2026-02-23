@@ -4,11 +4,29 @@ import sqlite3
 import sys
 import traceback
 import unicodedata
-import tkinter as tk
 from datetime import datetime
 from pathlib import Path
-from tkinter import messagebox
-from tkinter import ttk
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import (
+    QApplication,
+    QButtonGroup,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 APP_NAME = "Online"
 
@@ -28,8 +46,6 @@ ERROR_LOG = get_data_dir() / "online_error.log"
 
 
 def normalize_secret(value: str) -> str:
-    # Нормализуем Unicode-строки (например, вставка из разных источников),
-    # чтобы одинаково выглядящие пароли не считались разными.
     return unicodedata.normalize("NFC", value).rstrip("\r\n")
 
 
@@ -143,327 +159,344 @@ class Database:
         return cursor.fetchall()
 
 
-class OnlineApp(tk.Tk):
+class OnlineWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.db = Database()
         self.current_user = None
+        self.dialog_users = []
         self.selected_chat_user = None
 
-        self.title("Online — мессенджер")
-        self.geometry("1100x700")
-        self.minsize(900, 560)
-        self.configure(bg="#f4f6f8")
+        self.setWindowTitle("Online — мессенджер")
+        self.resize(1220, 760)
+        self.setMinimumSize(980, 640)
+        self.setWindowIcon(self._make_icon())
+        self.setStyleSheet(self._stylesheet())
 
-        self.style = ttk.Style()
-        try:
-            self.style.theme_use("clam")
-        except tk.TclError:
-            pass
-        self._configure_styles()
-        self._set_window_icon()
+        self.root = QWidget()
+        self.setCentralWidget(self.root)
+        self.root_layout = QVBoxLayout(self.root)
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.auth_frame = None
-        self.main_frame = None
-        self.show_auth_frame()
+        self.auth_widget = self._build_auth_ui()
+        self.main_widget = self._build_main_ui()
+        self.main_widget.hide()
 
+        self.root_layout.addWidget(self.auth_widget)
+        self.root_layout.addWidget(self.main_widget)
 
-    def _set_window_icon(self):
-        try:
-            icon = tk.PhotoImage(width=64, height=64)
-            icon.put("#2aabee", to=(0, 0, 64, 64))
-            icon.put("#ffffff", to=(14, 14, 50, 50))
-            icon.put("#2aabee", to=(22, 22, 42, 42))
-            self.iconphoto(True, icon)
-            self._icon_ref = icon
-        except Exception:
-            pass
+    def _make_icon(self) -> QIcon:
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor("#a64dff"))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(4, 4, 56, 56)
+        painter.setPen(QPen(QColor("#ffffff"), 6))
+        painter.drawEllipse(18, 18, 28, 28)
+        painter.end()
+        return QIcon(pixmap)
 
-    def _configure_styles(self):
-        self.style.configure("Sidebar.TFrame", background="#17212b")
-        self.style.configure("Main.TFrame", background="#0e1621")
-        self.style.configure("Auth.TFrame", background="#f4f6f8")
-        self.style.configure("AuthCard.TFrame", background="#ffffff")
-        self.style.configure("Card.TFrame", background="#242f3d")
-        self.style.configure("TLabel", background="#0e1621", foreground="#e6ebf0", font=("Segoe UI", 10))
-        self.style.configure("Header.TLabel", font=("Segoe UI", 16, "bold"), foreground="#f5f7fa", background="#17212b")
-        self.style.configure("SubHeader.TLabel", font=("Segoe UI", 11), foreground="#8f9bad", background="#17212b")
-        self.style.configure("Accent.TButton", background="#2aabee", foreground="#ffffff", font=("Segoe UI", 10, "bold"), borderwidth=0)
-        self.style.map("Accent.TButton", background=[("active", "#229ed9")])
+    def _stylesheet(self) -> str:
+        return """
+            QWidget { background: #f5f2ff; color: #1f2033; font-family: 'Segoe UI'; font-size: 14px; }
+            #AuthCard { background: white; border-radius: 24px; }
+            #BrandTitle { color: #b025ff; font-size: 46px; font-weight: 800; }
+            #AuthTitle { font-size: 36px; font-weight: 700; color: #171a2d; }
+            #Hint { color: #7b7f9d; }
+            QLineEdit { background: #f2f4fb; border: 2px solid #ece8fb; border-radius: 12px; padding: 12px; }
+            QLineEdit:focus { border-color: #b025ff; background: #ffffff; }
+            QPushButton { background: #b025ff; color: white; border: none; border-radius: 12px; padding: 13px; font-weight: 700; }
+            QPushButton:hover { background: #9220de; }
+            #Sidebar { background: #f7f6ff; border-right: 1px solid #e3def7; }
+            #TopBar, #Composer { background: #ffffff; border-bottom: 1px solid #e8e5f7; }
+            #Composer { border-top: 1px solid #e8e5f7; border-bottom: none; }
+            QListWidget { background: transparent; border: none; }
+            QListWidget::item { padding: 12px; border-radius: 10px; margin: 2px 8px; }
+            QListWidget::item:selected { background: #ead8ff; color: #2a0e47; }
+            QTextEdit { background: #f3f1ff; border: none; padding: 16px; }
+            QRadioButton { color: #4f5677; }
+        """
 
-    def clear_window(self):
-        for child in self.winfo_children():
-            child.destroy()
+    def _build_auth_ui(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(120, 40, 120, 40)
 
-    def show_auth_frame(self):
-        self.clear_window()
-        self.auth_frame = ttk.Frame(self, style="Auth.TFrame")
-        self.auth_frame.pack(fill="both", expand=True)
+        card = QFrame()
+        card.setObjectName("AuthCard")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(42, 36, 42, 32)
+        card_layout.setSpacing(10)
 
-        center = ttk.Frame(self.auth_frame, style="AuthCard.TFrame", padding=34)
-        center.place(relx=0.5, rely=0.5, anchor="center", width=500, height=640)
+        brand = QLabel("Online")
+        brand.setObjectName("BrandTitle")
+        brand.setAlignment(Qt.AlignHCenter)
+        card_layout.addWidget(brand)
 
-        tk.Label(center, text="Online", bg="#ffffff", fg="#2aabee", font=("Segoe UI Semibold", 34, "bold")).pack(pady=(0, 2))
-        tk.Label(center, text="Современный мессенджер", bg="#ffffff", fg="#8a99aa", font=("Segoe UI", 11)).pack(pady=(0, 12))
+        title = QLabel("Вход в Online")
+        title.setObjectName("AuthTitle")
+        title.setAlignment(Qt.AlignHCenter)
+        card_layout.addWidget(title)
 
-        tk.Label(center, text="Войти в Online", bg="#ffffff", fg="#111111", font=("Segoe UI", 27, "bold")).pack(pady=(0, 8))
-        tk.Label(
-            center,
-            text="Введите логин и пароль для входа или создайте новый аккаунт.",
-            bg="#ffffff",
-            fg="#6f7f8f",
-            font=("Segoe UI", 12),
-            wraplength=380,
-            justify="center",
-        ).pack(pady=(0, 20))
+        subtitle = QLabel("Войдите в аккаунт или зарегистрируйтесь по логину и паролю")
+        subtitle.setWordWrap(True)
+        subtitle.setObjectName("Hint")
+        subtitle.setAlignment(Qt.AlignHCenter)
+        card_layout.addWidget(subtitle)
 
-        self.auth_mode = tk.StringVar(value="login")
-        switch_row = tk.Frame(center, bg="#ffffff")
-        switch_row.pack(fill="x", pady=(0, 16))
+        mode_row = QHBoxLayout()
+        self.login_mode = QRadioButton("Вход")
+        self.register_mode = QRadioButton("Регистрация")
+        self.login_mode.setChecked(True)
+        mode_group = QButtonGroup(self)
+        mode_group.addButton(self.login_mode)
+        mode_group.addButton(self.register_mode)
+        self.login_mode.toggled.connect(self._toggle_register_fields)
+        mode_row.addWidget(self.login_mode)
+        mode_row.addWidget(self.register_mode)
+        mode_row.addStretch()
+        card_layout.addLayout(mode_row)
 
-        tk.Radiobutton(
-            switch_row,
-            text="Вход",
-            variable=self.auth_mode,
-            value="login",
-            command=self._update_auth_ui,
-            bg="#ffffff",
-            fg="#34495e",
-            selectcolor="#d8edf9",
-            activebackground="#ffffff",
-            activeforeground="#111111",
-            font=("Segoe UI", 11),
-        ).pack(side="left", padx=(0, 20))
-        tk.Radiobutton(
-            switch_row,
-            text="Регистрация",
-            variable=self.auth_mode,
-            value="register",
-            command=self._update_auth_ui,
-            bg="#ffffff",
-            fg="#34495e",
-            selectcolor="#d8edf9",
-            activebackground="#ffffff",
-            activeforeground="#111111",
-            font=("Segoe UI", 11),
-        ).pack(side="left")
+        card_layout.addWidget(QLabel("Логин"))
+        self.login_input = QLineEdit()
+        self.login_input.setPlaceholderText("Введите логин")
+        card_layout.addWidget(self.login_input)
 
-        tk.Label(center, text="Логин", bg="#ffffff", fg="#637a91", anchor="w", font=("Segoe UI", 10)).pack(fill="x", pady=(8, 4))
-        self.login_entry = tk.Entry(center, bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
-        self.login_entry.pack(fill="x", ipady=11)
+        card_layout.addWidget(QLabel("Пароль"))
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.Password)
+        self.password_input.setPlaceholderText("Введите пароль")
+        card_layout.addWidget(self.password_input)
 
-        tk.Label(center, text="Пароль", bg="#ffffff", fg="#637a91", anchor="w", font=("Segoe UI", 10)).pack(fill="x", pady=(12, 4))
-        self.password_entry = tk.Entry(center, show="*", bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
-        self.password_entry.pack(fill="x", ipady=11)
+        self.repeat_label = QLabel("Повторите пароль")
+        self.repeat_input = QLineEdit()
+        self.repeat_input.setEchoMode(QLineEdit.Password)
+        self.repeat_input.setPlaceholderText("Повторите пароль")
+        card_layout.addWidget(self.repeat_label)
+        card_layout.addWidget(self.repeat_input)
 
-        self.repeat_password_frame = tk.Frame(center, bg="#ffffff")
-        self.repeat_password_label = tk.Label(self.repeat_password_frame, text="Повторите пароль", bg="#ffffff", fg="#637a91", anchor="w", font=("Segoe UI", 10))
-        self.repeat_password_label.pack(fill="x", pady=(0, 4))
-        self.repeat_password_entry = tk.Entry(self.repeat_password_frame, show="*", bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
-        self.repeat_password_entry.pack(fill="x", ipady=11)
+        self.auth_button = QPushButton("Войти")
+        self.auth_button.clicked.connect(self._handle_auth)
+        card_layout.addWidget(self.auth_button)
 
-        self.auth_button = ttk.Button(center, text="Войти", style="Accent.TButton", command=self._handle_auth)
-        self.auth_button.pack(fill="x", pady=(26, 12), ipady=10)
+        hint = QLabel("Розово-фиолетовая тема Online. Для переписки создайте минимум 2 аккаунта.")
+        hint.setObjectName("Hint")
+        hint.setWordWrap(True)
+        hint.setAlignment(Qt.AlignHCenter)
+        card_layout.addWidget(hint)
 
-        hint = "Авторизация в текущей версии работает по логину и паролю."
-        tk.Label(center, text=hint, bg="#ffffff", fg="#8c9baa", wraplength=360, justify="center", font=("Segoe UI", 9)).pack(fill="x", pady=(2, 0))
+        layout.addStretch()
+        layout.addWidget(card)
+        layout.addStretch()
+        self._toggle_register_fields()
+        return page
 
-        self._update_auth_ui()
+    def _build_main_ui(self) -> QWidget:
+        container = QWidget()
+        root = QVBoxLayout(container)
+        root.setContentsMargins(0, 0, 0, 0)
 
-    def _update_auth_ui(self):
-        is_register = self.auth_mode.get() == "register"
-        if is_register:
-            if not self.repeat_password_frame.winfo_ismapped():
-                self.repeat_password_frame.pack(fill="x", pady=(12, 0), before=self.auth_button)
-            self.auth_button.config(text="Создать аккаунт")
-        else:
-            self.repeat_password_frame.pack_forget()
-            self.repeat_password_entry.delete(0, tk.END)
-            self.auth_button.config(text="Войти")
+        splitter = QSplitter()
+
+        left = QFrame()
+        left.setObjectName("Sidebar")
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(12, 14, 12, 14)
+        self.user_label = QLabel("Вы вошли")
+        self.user_label.setStyleSheet("font-weight:700; color:#7a2ac9;")
+        left_layout.addWidget(self.user_label)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Поиск")
+        self.search_input.textChanged.connect(self.load_dialogs)
+        left_layout.addWidget(self.search_input)
+
+        self.dialog_list = QListWidget()
+        self.dialog_list.itemSelectionChanged.connect(self._on_dialog_selected)
+        left_layout.addWidget(self.dialog_list, 1)
+
+        logout_btn = QPushButton("Выйти")
+        logout_btn.clicked.connect(self.show_auth_page)
+        left_layout.addWidget(logout_btn)
+
+        center = QWidget()
+        center_layout = QVBoxLayout(center)
+        center_layout.setContentsMargins(0, 0, 0, 0)
+
+        top_bar = QFrame()
+        top_bar.setObjectName("TopBar")
+        top_layout = QHBoxLayout(top_bar)
+        self.chat_title = QLabel("Выберите диалог")
+        self.chat_title.setStyleSheet("font-size:18px; font-weight:700; color:#2f2052;")
+        top_layout.addWidget(self.chat_title)
+        top_layout.addStretch()
+        center_layout.addWidget(top_bar)
+
+        self.messages_view = QTextEdit()
+        self.messages_view.setReadOnly(True)
+        center_layout.addWidget(self.messages_view, 1)
+
+        composer = QFrame()
+        composer.setObjectName("Composer")
+        composer_layout = QHBoxLayout(composer)
+        self.message_input = QLineEdit()
+        self.message_input.setPlaceholderText("Напишите сообщение...")
+        self.message_input.returnPressed.connect(self.send_message)
+        send_btn = QPushButton("Отправить")
+        send_btn.clicked.connect(self.send_message)
+        composer_layout.addWidget(self.message_input, 1)
+        composer_layout.addWidget(send_btn)
+        center_layout.addWidget(composer)
+
+        details = QFrame()
+        details.setObjectName("Sidebar")
+        details_layout = QVBoxLayout(details)
+        details_layout.setContentsMargins(16, 18, 16, 18)
+        details_title = QLabel("Online")
+        details_title.setStyleSheet("font-size:22px; font-weight:800; color:#b025ff;")
+        details_layout.addWidget(details_title)
+        details_layout.addWidget(QLabel("Профиль и действия"))
+        details_layout.addWidget(QLabel("• Логин/пароль авторизация"))
+        details_layout.addWidget(QLabel("• Русский интерфейс"))
+        details_layout.addWidget(QLabel("• SQLite локальное хранение"))
+        details_layout.addStretch()
+
+        splitter.addWidget(left)
+        splitter.addWidget(center)
+        splitter.addWidget(details)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 4)
+        splitter.setStretchFactor(2, 2)
+
+        root.addWidget(splitter)
+        return container
+
+    def _toggle_register_fields(self):
+        is_register = self.register_mode.isChecked()
+        self.repeat_label.setVisible(is_register)
+        self.repeat_input.setVisible(is_register)
+        self.auth_button.setText("Создать аккаунт" if is_register else "Войти")
+        if not is_register:
+            self.repeat_input.clear()
 
     def _handle_auth(self):
-        login = self.login_entry.get().strip()
-        password = normalize_secret(self.password_entry.get())
+        login = self.login_input.text().strip()
+        password = normalize_secret(self.password_input.text())
 
         if len(login) < 3:
-            messagebox.showerror("Ошибка", "Логин должен быть не короче 3 символов.")
+            QMessageBox.critical(self, "Ошибка", "Логин должен быть не короче 3 символов.")
             return
         if len(password) < 4:
-            messagebox.showerror("Ошибка", "Пароль должен быть не короче 4 символов.")
+            QMessageBox.critical(self, "Ошибка", "Пароль должен быть не короче 4 символов.")
             return
 
-        if self.auth_mode.get() == "register":
-            repeat = normalize_secret(self.repeat_password_entry.get())
+        if self.register_mode.isChecked():
+            repeat = normalize_secret(self.repeat_input.text())
             if password != repeat:
-                messagebox.showerror("Ошибка", "Пароли не совпадают.")
+                QMessageBox.critical(self, "Ошибка", "Пароли не совпадают.")
                 return
             user_id = self.db.create_user(login, password)
             if user_id is None:
-                messagebox.showerror("Ошибка", "Пользователь с таким логином уже существует.")
+                QMessageBox.critical(self, "Ошибка", "Пользователь с таким логином уже существует.")
                 return
             self.current_user = {"id": user_id, "login": login}
-            self.show_main_frame()
+            self.show_main_page()
             return
 
         user = self.db.authenticate(login, password)
         if user is None:
-            messagebox.showerror("Ошибка", "Неверный логин или пароль.")
+            QMessageBox.critical(self, "Ошибка", "Неверный логин или пароль.")
             return
-
         self.current_user = dict(user)
-        self.show_main_frame()
+        self.show_main_page()
 
-    def show_main_frame(self):
-        self.clear_window()
-        root = ttk.Frame(self)
-        root.pack(fill="both", expand=True)
+    def show_auth_page(self):
+        self.main_widget.hide()
+        self.auth_widget.show()
+        self.password_input.clear()
+        self.repeat_input.clear()
 
-        sidebar = ttk.Frame(root, style="Sidebar.TFrame", width=320)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
-
-        chat_area = ttk.Frame(root, style="Main.TFrame")
-        chat_area.pack(side="left", fill="both", expand=True)
-
-        ttk.Label(sidebar, text="Online", style="Header.TLabel").pack(anchor="w", padx=16, pady=(18, 0))
-        ttk.Label(sidebar, text=f"Вы вошли как @{self.current_user['login']}", style="SubHeader.TLabel").pack(anchor="w", padx=16, pady=(2, 14))
-
-        self.search_var = tk.StringVar()
-        search_entry = tk.Entry(sidebar, textvariable=self.search_var, bg="#242f3d", fg="#ffffff", relief="flat", insertbackground="#ffffff", font=("Segoe UI", 10))
-        search_entry.pack(fill="x", padx=16, ipady=7)
-        search_entry.bind("<KeyRelease>", lambda _e: self.load_dialogs())
-
-        list_container = tk.Frame(sidebar, bg="#17212b")
-        list_container.pack(fill="both", expand=True, padx=12, pady=12)
-
-        self.dialog_listbox = tk.Listbox(
-            list_container,
-            bg="#17212b",
-            fg="#e6ebf0",
-            selectbackground="#2b5278",
-            selectforeground="#ffffff",
-            activestyle="none",
-            relief="flat",
-            highlightthickness=0,
-            font=("Segoe UI", 11),
-        )
-        self.dialog_listbox.pack(fill="both", expand=True)
-        self.dialog_listbox.bind("<<ListboxSelect>>", self._on_dialog_selected)
-
-        footer = tk.Frame(sidebar, bg="#17212b")
-        footer.pack(fill="x", padx=12, pady=(0, 12))
-        ttk.Button(footer, text="Выйти", style="Accent.TButton", command=self.show_auth_frame).pack(fill="x")
-
-        top_bar = tk.Frame(chat_area, bg="#182533", height=64)
-        top_bar.pack(fill="x")
-        top_bar.pack_propagate(False)
-
-        self.chat_title = tk.Label(top_bar, text="Выберите диалог слева", bg="#182533", fg="#ffffff", font=("Segoe UI", 13, "bold"))
-        self.chat_title.pack(anchor="w", padx=18, pady=18)
-
-        body = tk.Frame(chat_area, bg="#0e1621")
-        body.pack(fill="both", expand=True)
-
-        self.messages_text = tk.Text(
-            body,
-            state="disabled",
-            wrap="word",
-            bg="#0e1621",
-            fg="#dce3ea",
-            insertbackground="#ffffff",
-            relief="flat",
-            padx=20,
-            pady=16,
-            font=("Segoe UI", 10),
-        )
-        self.messages_text.pack(fill="both", expand=True)
-
-        input_frame = tk.Frame(chat_area, bg="#17212b")
-        input_frame.pack(fill="x")
-
-        self.message_var = tk.StringVar()
-        self.message_entry = tk.Entry(input_frame, textvariable=self.message_var, bg="#242f3d", fg="#ffffff", relief="flat", insertbackground="#ffffff", font=("Segoe UI", 11))
-        self.message_entry.pack(side="left", fill="x", expand=True, padx=(14, 8), pady=12, ipady=8)
-        self.message_entry.bind("<Return>", lambda _e: self.send_message())
-
-        ttk.Button(input_frame, text="Отправить", style="Accent.TButton", command=self.send_message).pack(side="left", padx=(0, 14), pady=12)
-
-        self.dialog_users = []
+    def show_main_page(self):
+        self.auth_widget.hide()
+        self.main_widget.show()
+        self.user_label.setText(f"@{self.current_user['login']}")
         self.load_dialogs()
 
     def load_dialogs(self):
-        query = self.search_var.get().strip() if hasattr(self, "search_var") else ""
-        rows = self.db.get_dialogs(self.current_user["id"]) if query == "" else self.db.find_users(self.current_user["id"], query)
+        if not self.current_user:
+            return
+        query = self.search_input.text().strip()
+        rows = self.db.get_dialogs(self.current_user["id"]) if not query else self.db.find_users(self.current_user["id"], query)
         self.dialog_users = [dict(r) for r in rows]
 
-        self.dialog_listbox.delete(0, tk.END)
-        for row in self.dialog_users:
-            self.dialog_listbox.insert(tk.END, f"@{row['login']}")
+        self.dialog_list.clear()
+        for user in self.dialog_users:
+            item = QListWidgetItem(f"@{user['login']}")
+            self.dialog_list.addItem(item)
 
-    def _on_dialog_selected(self, _event=None):
-        selected = self.dialog_listbox.curselection()
-        if not selected:
+    def _on_dialog_selected(self):
+        idx = self.dialog_list.currentRow()
+        if idx < 0 or idx >= len(self.dialog_users):
             return
-        idx = selected[0]
         self.selected_chat_user = self.dialog_users[idx]
-        self.chat_title.config(text=f"@{self.selected_chat_user['login']}")
+        self.chat_title.setText(f"@{self.selected_chat_user['login']}")
         self.render_messages()
 
     def render_messages(self):
         if not self.selected_chat_user:
             return
-
         messages = self.db.get_messages(self.current_user["id"], self.selected_chat_user["id"])
-        self.messages_text.config(state="normal")
-        self.messages_text.delete("1.0", tk.END)
-
-        if not messages:
-            self.messages_text.insert(tk.END, "Начните общение — отправьте первое сообщение.\n")
-
+        html_parts = []
         for msg in messages:
             is_me = msg["sender_id"] == self.current_user["id"]
-            owner = "Вы" if is_me else f"@{self.selected_chat_user['login']}"
+            align = "right" if is_me else "left"
+            bg = "#b025ff" if is_me else "#ffffff"
+            fg = "#ffffff" if is_me else "#2c2d45"
+            who = "Вы" if is_me else f"@{self.selected_chat_user['login']}"
             stamp = msg["created_at"].replace("T", " ")
-            bubble_tag = "bubble_me" if is_me else "bubble_other"
-            self.messages_text.insert(tk.END, f"{owner} • {stamp}\n", "meta")
-            self.messages_text.insert(tk.END, f"{msg['text']}\n\n", bubble_tag)
-
-        self.messages_text.tag_config("meta", foreground="#7e8ea4", font=("Segoe UI", 9, "italic"))
-        self.messages_text.tag_config("bubble_me", background="#2b5278", foreground="#ffffff", lmargin1=8, lmargin2=8, spacing1=2, spacing3=8)
-        self.messages_text.tag_config("bubble_other", background="#223242", foreground="#dce3ea", lmargin1=8, lmargin2=8, spacing1=2, spacing3=8)
-        self.messages_text.config(state="disabled")
-        self.messages_text.see(tk.END)
+            safe_text = msg["text"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            html_parts.append(
+                f"""
+                <div style='text-align:{align}; margin:8px 0;'>
+                    <div style='display:inline-block; max-width:70%; background:{bg}; color:{fg}; border-radius:14px; padding:9px 12px;'>
+                        <div style='font-size:11px; opacity:0.75; margin-bottom:3px;'>{who} • {stamp}</div>
+                        <div>{safe_text}</div>
+                    </div>
+                </div>
+                """
+            )
+        if not html_parts:
+            html_parts.append("<div style='color:#6f6f8f;'>Начните общение — отправьте первое сообщение.</div>")
+        self.messages_view.setHtml("".join(html_parts))
+        self.messages_view.verticalScrollBar().setValue(self.messages_view.verticalScrollBar().maximum())
 
     def send_message(self):
         if not self.selected_chat_user:
-            messagebox.showwarning("Внимание", "Сначала выберите пользователя для диалога.")
+            QMessageBox.warning(self, "Внимание", "Сначала выберите пользователя для диалога.")
             return
-
-        text = self.message_var.get().strip()
+        text = self.message_input.text().strip()
         if not text:
             return
-
         self.db.save_message(self.current_user["id"], self.selected_chat_user["id"], text)
-        self.message_var.set("")
+        self.message_input.clear()
         self.render_messages()
         self.load_dialogs()
 
 
 def main():
-    app = OnlineApp()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    app.setFont(QFont("Segoe UI", 10))
+    window = OnlineWindow()
+    window.show()
+    return app.exec()
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except Exception:
         ERROR_LOG.write_text(traceback.format_exc(), encoding="utf-8")
-        try:
-            messagebox.showerror(
-                "Критическая ошибка",
-                f"Приложение завершилось с ошибкой.\nЛог: {ERROR_LOG}",
-            )
-        except Exception:
-            pass
+        print(f"Критическая ошибка. Лог: {ERROR_LOG}")
         sys.exit(1)
