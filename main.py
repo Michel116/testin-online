@@ -190,10 +190,11 @@ class OnlineApp(tk.Tk):
         center = ttk.Frame(self.auth_frame, style="AuthCard.TFrame", padding=30)
         center.place(relx=0.5, rely=0.5, anchor="center", width=470, height=610)
 
-        logo_canvas = tk.Canvas(center, width=96, height=96, bg="#ffffff", highlightthickness=0)
+        logo_canvas = tk.Canvas(center, width=110, height=110, bg="#ffffff", highlightthickness=0)
         logo_canvas.pack(pady=(0, 12))
-        logo_canvas.create_oval(4, 4, 92, 92, fill="#2aabee", outline="")
-        logo_canvas.create_polygon(32, 51, 68, 34, 61, 65, 49, 58, 42, 63, fill="#ffffff", outline="")
+        logo_canvas.create_oval(6, 6, 104, 104, fill="#2aabee", outline="")
+        logo_canvas.create_oval(24, 24, 86, 86, fill="#ffffff", outline="")
+        logo_canvas.create_text(55, 55, text="O", fill="#2aabee", font=("Segoe UI", 26, "bold"))
 
         tk.Label(center, text="Войти в Online", bg="#ffffff", fg="#111111", font=("Segoe UI", 28, "bold")).pack(pady=(0, 8))
         tk.Label(
@@ -259,12 +260,13 @@ class OnlineApp(tk.Tk):
     def _update_auth_ui(self):
         is_register = self.auth_mode.get() == "register"
         if is_register:
-            self.repeat_password_label.pack(fill="x", pady=(12, 4))
-            self.repeat_password_entry.pack(fill="x", ipady=8)
+            self.repeat_password_label.pack(fill="x", pady=(12, 4), before=self.auth_button)
+            self.repeat_password_entry.pack(fill="x", ipady=8, before=self.auth_button)
             self.auth_button.config(text="Создать аккаунт")
         else:
             self.repeat_password_label.pack_forget()
             self.repeat_password_entry.pack_forget()
+            self.repeat_password_entry.delete(0, tk.END)
             self.auth_button.config(text="Войти")
 
     def _handle_auth(self):
