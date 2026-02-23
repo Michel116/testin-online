@@ -161,10 +161,23 @@ class OnlineApp(tk.Tk):
         except tk.TclError:
             pass
         self._configure_styles()
+        self._set_window_icon()
 
         self.auth_frame = None
         self.main_frame = None
         self.show_auth_frame()
+
+
+    def _set_window_icon(self):
+        try:
+            icon = tk.PhotoImage(width=64, height=64)
+            icon.put("#2aabee", to=(0, 0, 64, 64))
+            icon.put("#ffffff", to=(14, 14, 50, 50))
+            icon.put("#2aabee", to=(22, 22, 42, 42))
+            self.iconphoto(True, icon)
+            self._icon_ref = icon
+        except Exception:
+            pass
 
     def _configure_styles(self):
         self.style.configure("Sidebar.TFrame", background="#17212b")
@@ -187,23 +200,20 @@ class OnlineApp(tk.Tk):
         self.auth_frame = ttk.Frame(self, style="Auth.TFrame")
         self.auth_frame.pack(fill="both", expand=True)
 
-        center = ttk.Frame(self.auth_frame, style="AuthCard.TFrame", padding=30)
-        center.place(relx=0.5, rely=0.5, anchor="center", width=470, height=610)
+        center = ttk.Frame(self.auth_frame, style="AuthCard.TFrame", padding=34)
+        center.place(relx=0.5, rely=0.5, anchor="center", width=500, height=640)
 
-        logo_canvas = tk.Canvas(center, width=110, height=110, bg="#ffffff", highlightthickness=0)
-        logo_canvas.pack(pady=(0, 12))
-        logo_canvas.create_oval(6, 6, 104, 104, fill="#2aabee", outline="")
-        logo_canvas.create_oval(24, 24, 86, 86, fill="#ffffff", outline="")
-        logo_canvas.create_text(55, 55, text="O", fill="#2aabee", font=("Segoe UI", 26, "bold"))
+        tk.Label(center, text="Online", bg="#ffffff", fg="#2aabee", font=("Segoe UI Semibold", 34, "bold")).pack(pady=(0, 2))
+        tk.Label(center, text="Современный мессенджер", bg="#ffffff", fg="#8a99aa", font=("Segoe UI", 11)).pack(pady=(0, 12))
 
-        tk.Label(center, text="Войти в Online", bg="#ffffff", fg="#111111", font=("Segoe UI", 28, "bold")).pack(pady=(0, 8))
+        tk.Label(center, text="Войти в Online", bg="#ffffff", fg="#111111", font=("Segoe UI", 27, "bold")).pack(pady=(0, 8))
         tk.Label(
             center,
-            text="Введите логин и пароль для входа в приложение Online.",
+            text="Введите логин и пароль для входа или создайте новый аккаунт.",
             bg="#ffffff",
             fg="#6f7f8f",
             font=("Segoe UI", 12),
-            wraplength=360,
+            wraplength=380,
             justify="center",
         ).pack(pady=(0, 20))
 
@@ -246,8 +256,11 @@ class OnlineApp(tk.Tk):
         self.password_entry = tk.Entry(center, show="*", bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
         self.password_entry.pack(fill="x", ipady=11)
 
-        self.repeat_password_label = tk.Label(center, text="Повторите пароль", bg="#ffffff", fg="#637a91", anchor="w", font=("Segoe UI", 10))
-        self.repeat_password_entry = tk.Entry(center, show="*", bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
+        self.repeat_password_frame = tk.Frame(center, bg="#ffffff")
+        self.repeat_password_label = tk.Label(self.repeat_password_frame, text="Повторите пароль", bg="#ffffff", fg="#637a91", anchor="w", font=("Segoe UI", 10))
+        self.repeat_password_label.pack(fill="x", pady=(0, 4))
+        self.repeat_password_entry = tk.Entry(self.repeat_password_frame, show="*", bg="#f5f7fa", fg="#111111", relief="flat", insertbackground="#111111", font=("Segoe UI", 12))
+        self.repeat_password_entry.pack(fill="x", ipady=11)
 
         self.auth_button = ttk.Button(center, text="Войти", style="Accent.TButton", command=self._handle_auth)
         self.auth_button.pack(fill="x", pady=(26, 12), ipady=10)
@@ -260,12 +273,11 @@ class OnlineApp(tk.Tk):
     def _update_auth_ui(self):
         is_register = self.auth_mode.get() == "register"
         if is_register:
-            self.repeat_password_label.pack(fill="x", pady=(12, 4), before=self.auth_button)
-            self.repeat_password_entry.pack(fill="x", ipady=8, before=self.auth_button)
+            if not self.repeat_password_frame.winfo_ismapped():
+                self.repeat_password_frame.pack(fill="x", pady=(12, 0), before=self.auth_button)
             self.auth_button.config(text="Создать аккаунт")
         else:
-            self.repeat_password_label.pack_forget()
-            self.repeat_password_entry.pack_forget()
+            self.repeat_password_frame.pack_forget()
             self.repeat_password_entry.delete(0, tk.END)
             self.auth_button.config(text="Войти")
 
