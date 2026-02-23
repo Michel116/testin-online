@@ -255,6 +255,7 @@ class OnlineApp(tk.Tk):
         tk.Label(center, text=hint, bg="#ffffff", fg="#8c9baa", wraplength=360, justify="center", font=("Segoe UI", 9)).pack(fill="x", pady=(2, 0))
 
         self._update_auth_ui()
+
     def _update_auth_ui(self):
         is_register = self.auth_mode.get() == "register"
         if is_register:
