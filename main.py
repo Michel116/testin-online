@@ -3,6 +3,7 @@ import os
 import sqlite3
 import sys
 import traceback
+import unicodedata
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
@@ -26,8 +27,15 @@ DB_NAME = str(get_data_dir() / "online.db")
 ERROR_LOG = get_data_dir() / "online_error.log"
 
 
+def normalize_secret(value: str) -> str:
+    # Нормализуем Unicode-строки (например, вставка из разных источников),
+    # чтобы одинаково выглядящие пароли не считались разными.
+    return unicodedata.normalize("NFC", value).rstrip("\r\n")
+
+
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    normalized = normalize_secret(password)
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 class Database:
@@ -244,7 +252,7 @@ class OnlineApp(tk.Tk):
 
     def _handle_auth(self):
         login = self.login_entry.get().strip()
-        password = self.password_entry.get().strip()
+        password = normalize_secret(self.password_entry.get())
 
         if len(login) < 3:
             messagebox.showerror("Ошибка", "Логин должен быть не короче 3 символов.")
@@ -254,7 +262,7 @@ class OnlineApp(tk.Tk):
             return
 
         if self.auth_mode.get() == "register":
-            repeat = self.repeat_password_entry.get().strip()
+            repeat = normalize_secret(self.repeat_password_entry.get())
             if password != repeat:
                 messagebox.showerror("Ошибка", "Пароли не совпадают.")
                 return
