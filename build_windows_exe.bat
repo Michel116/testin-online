@@ -61,6 +61,7 @@ goto :end
 
 :fail
 echo Build failed. Please check the errors above.
+pause
 exit /b 1
 
 :end
