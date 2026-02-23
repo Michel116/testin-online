@@ -190,7 +190,7 @@ class OnlineWindow(QMainWindow):
         pixmap.fill(Qt.transparent)
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor("#a64dff"))
+        painter.setBrush(QColor("#2f7cf6"))
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(4, 4, 56, 56)
         painter.setPen(QPen(QColor("#ffffff"), 6))
@@ -200,23 +200,32 @@ class OnlineWindow(QMainWindow):
 
     def _stylesheet(self) -> str:
         return """
-            QWidget { background: #f5f2ff; color: #1f2033; font-family: 'Segoe UI'; font-size: 14px; }
-            #AuthCard { background: white; border-radius: 24px; }
-            #BrandTitle { color: #b025ff; font-size: 46px; font-weight: 800; }
-            #AuthTitle { font-size: 36px; font-weight: 700; color: #171a2d; }
-            #Hint { color: #7b7f9d; }
-            QLineEdit { background: #f2f4fb; border: 2px solid #ece8fb; border-radius: 12px; padding: 12px; }
-            QLineEdit:focus { border-color: #b025ff; background: #ffffff; }
-            QPushButton { background: #b025ff; color: white; border: none; border-radius: 12px; padding: 13px; font-weight: 700; }
-            QPushButton:hover { background: #9220de; }
-            #Sidebar { background: #f7f6ff; border-right: 1px solid #e3def7; }
-            #TopBar, #Composer { background: #ffffff; border-bottom: 1px solid #e8e5f7; }
-            #Composer { border-top: 1px solid #e8e5f7; border-bottom: none; }
+            QWidget { background: #eaf3ff; color: #1f2a3d; font-family: 'Segoe UI'; font-size: 14px; }
+            #AuthCard { background: white; border-radius: 26px; border: 1px solid #dfe7f5; }
+            #BrandTitle { color: #2f7cf6; font-size: 46px; font-weight: 800; }
+            #AuthTitle { font-size: 34px; font-weight: 700; color: #182335; }
+            #Hint { color: #7e8ea8; }
+            QLineEdit { background: #f6f9ff; border: 1px solid #d7e2f4; border-radius: 12px; padding: 12px; }
+            QLineEdit:focus { border-color: #2f7cf6; background: #ffffff; }
+            QPushButton { background: #2f7cf6; color: white; border: none; border-radius: 12px; padding: 12px 14px; font-weight: 700; }
+            QPushButton:hover { background: #2368d3; }
+            #MainShell { background: #f7fbff; border-radius: 24px; border: 1px solid #d9e6fb; }
+            #LeftRail { background: #f8fbff; border-right: 1px solid #e2ebfa; }
+            #ChatsPanel { background: #ffffff; border-right: 1px solid #e2ebfa; }
+            #ChatArea { background: #eef3fb; }
+            #TopBar, #Composer { background: #ffffff; border-bottom: 1px solid #e2ebfa; }
+            #Composer { border-top: 1px solid #e2ebfa; border-bottom: none; }
+            #ProfilePanel { background: #ffffff; border-left: 1px solid #e2ebfa; }
+            #SectionTitle { font-size: 11px; color: #8c9ab1; font-weight: 600; letter-spacing: 1px; }
             QListWidget { background: transparent; border: none; }
-            QListWidget::item { padding: 12px; border-radius: 10px; margin: 2px 8px; }
-            QListWidget::item:selected { background: #ead8ff; color: #2a0e47; }
-            QTextEdit { background: #f3f1ff; border: none; padding: 16px; }
-            QRadioButton { color: #4f5677; }
+            QListWidget::item { padding: 10px; border-radius: 10px; margin: 2px 8px; }
+            QListWidget::item:selected { background: #dfeeff; color: #10376a; }
+            QTextEdit { background: #edf3fc; border: none; padding: 16px; }
+            QRadioButton { color: #4f5f78; }
+            #NavButton { background: transparent; color: #5d6f8f; text-align: left; padding: 8px 10px; border-radius: 10px; font-weight: 600; }
+            #NavButton:hover { background: #e8f1ff; color: #2f7cf6; }
+            #StoryChip { background: #f2f7ff; border: 1px solid #d8e7ff; border-radius: 16px; padding: 8px 10px; color: #44628f; }
+            #InfoItem { color: #3c5275; padding: 5px 0; }
         """
 
     def _build_auth_ui(self) -> QWidget:
@@ -281,7 +290,7 @@ class OnlineWindow(QMainWindow):
         self.auth_button.clicked.connect(self._handle_auth)
         card_layout.addWidget(self.auth_button)
 
-        hint = QLabel("Розово-фиолетовая тема Online. Для переписки создайте минимум 2 аккаунта.")
+        hint = QLabel("Современный сине-белый интерфейс Online. Для переписки создайте минимум 2 аккаунта.")
         hint.setObjectName("Hint")
         hint.setWordWrap(True)
         hint.setAlignment(Qt.AlignHCenter)
@@ -294,24 +303,59 @@ class OnlineWindow(QMainWindow):
         return page
 
     def _build_main_ui(self) -> QWidget:
-        container = QWidget()
+        container = QFrame()
+        container.setObjectName("MainShell")
         root = QVBoxLayout(container)
-        root.setContentsMargins(0, 0, 0, 0)
+        root.setContentsMargins(12, 12, 12, 12)
 
         splitter = QSplitter()
 
-        left = QFrame()
-        left.setObjectName("Sidebar")
-        left_layout = QVBoxLayout(left)
-        left_layout.setContentsMargins(12, 14, 12, 14)
+        left_rail = QFrame()
+        left_rail.setObjectName("LeftRail")
+        rail_layout = QVBoxLayout(left_rail)
+        rail_layout.setContentsMargins(8, 12, 8, 12)
+        rail_layout.setSpacing(4)
+        rail_logo = QLabel("Online")
+        rail_logo.setStyleSheet("font-size:18px; font-weight:800; color:#2f7cf6;")
+        rail_layout.addWidget(rail_logo)
+        for txt in ["Все чаты", "Личные", "Группы", "Каналы", "Избранное"]:
+            btn = QPushButton(txt)
+            btn.setObjectName("NavButton")
+            rail_layout.addWidget(btn)
+        rail_layout.addStretch()
+        settings_btn = QPushButton("Настройки")
+        settings_btn.setObjectName("NavButton")
+        rail_layout.addWidget(settings_btn)
+
+        chats_panel = QFrame()
+        chats_panel.setObjectName("ChatsPanel")
+        left_layout = QVBoxLayout(chats_panel)
+        left_layout.setContentsMargins(12, 14, 12, 12)
+        left_layout.setSpacing(10)
+
         self.user_label = QLabel("Вы вошли")
-        self.user_label.setStyleSheet("font-weight:700; color:#7a2ac9;")
+        self.user_label.setStyleSheet("font-weight:700; color:#28518d;")
         left_layout.addWidget(self.user_label)
 
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Поиск")
         self.search_input.textChanged.connect(self.load_dialogs)
         left_layout.addWidget(self.search_input)
+
+        section_story = QLabel("STORY")
+        section_story.setObjectName("SectionTitle")
+        left_layout.addWidget(section_story)
+
+        stories_row = QHBoxLayout()
+        for name in ["Luna", "Mark", "Anna", "Leo"]:
+            chip = QLabel(name)
+            chip.setObjectName("StoryChip")
+            stories_row.addWidget(chip)
+        left_layout.addLayout(stories_row)
+
+        section_chats = QLabel("CHATS")
+        section_chats.setObjectName("SectionTitle")
+        left_layout.addWidget(section_chats)
 
         self.dialog_list = QListWidget()
         self.dialog_list.itemSelectionChanged.connect(self._on_dialog_selected)
@@ -321,7 +365,8 @@ class OnlineWindow(QMainWindow):
         logout_btn.clicked.connect(self.show_auth_page)
         left_layout.addWidget(logout_btn)
 
-        center = QWidget()
+        center = QFrame()
+        center.setObjectName("ChatArea")
         center_layout = QVBoxLayout(center)
         center_layout.setContentsMargins(0, 0, 0, 0)
 
@@ -329,9 +374,10 @@ class OnlineWindow(QMainWindow):
         top_bar.setObjectName("TopBar")
         top_layout = QHBoxLayout(top_bar)
         self.chat_title = QLabel("Выберите диалог")
-        self.chat_title.setStyleSheet("font-size:18px; font-weight:700; color:#2f2052;")
+        self.chat_title.setStyleSheet("font-size:18px; font-weight:700; color:#21395f;")
         top_layout.addWidget(self.chat_title)
         top_layout.addStretch()
+        top_layout.addWidget(QLabel("🔍  📞  ⋮"))
         center_layout.addWidget(top_bar)
 
         self.messages_view = QTextEdit()
@@ -351,24 +397,38 @@ class OnlineWindow(QMainWindow):
         center_layout.addWidget(composer)
 
         details = QFrame()
-        details.setObjectName("Sidebar")
+        details.setObjectName("ProfilePanel")
         details_layout = QVBoxLayout(details)
         details_layout.setContentsMargins(16, 18, 16, 18)
-        details_title = QLabel("Online")
-        details_title.setStyleSheet("font-size:22px; font-weight:800; color:#b025ff;")
+
+        details_title = QLabel("Профиль")
+        details_title.setStyleSheet("font-size:22px; font-weight:800; color:#2f7cf6;")
         details_layout.addWidget(details_title)
-        details_layout.addWidget(QLabel("Профиль и действия"))
-        details_layout.addWidget(QLabel("• Логин/пароль авторизация"))
-        details_layout.addWidget(QLabel("• Русский интерфейс"))
-        details_layout.addWidget(QLabel("• SQLite локальное хранение"))
+        details_layout.addWidget(QLabel("Уведомления"))
+
+        for item in [
+            "+7 (999) 123-45-67",
+            "@online_user",
+            "43 Фото",
+            "22 Видео",
+            "54 Файла",
+            "31 Музыка",
+            "87 Голосовых",
+        ]:
+            row = QLabel(item)
+            row.setObjectName("InfoItem")
+            details_layout.addWidget(row)
+
         details_layout.addStretch()
 
-        splitter.addWidget(left)
+        splitter.addWidget(left_rail)
+        splitter.addWidget(chats_panel)
         splitter.addWidget(center)
         splitter.addWidget(details)
-        splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 4)
-        splitter.setStretchFactor(2, 2)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(2, 4)
+        splitter.setStretchFactor(3, 2)
 
         root.addWidget(splitter)
         return container
